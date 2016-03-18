@@ -1,5 +1,8 @@
 # instaMoneyEngine
 
+Seeded from:
+https://github.com/justindujardin/angular2-seed
+
 Engine moving transactions from the work_queue to the account transaction lists
 
 /work_queue
