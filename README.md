@@ -14,3 +14,9 @@ flow: on child_added:
 * calculate currency rate, remove from account balance of bank-nl, add to account balance of bank-aus
 * remove from account balance of bank-aus, add to account balance of ‘to’ user, add transaction to account transaction list as booked
 * set transaction in from account transaction list as booked.
+
+Examples: two possible libraries:
+
+https://github.com/OasisDigital/angular2-firebase-demo/tree/master/app/activity
+
+https://github.com/KallynGowdy/ng2-firebase
