@@ -9,12 +9,14 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
         });
     }])
 
-    .controller('View1Ctrl', function ($firebaseArray) {
+    .controller('View1Ctrl', function ($firebaseObject, $firebaseArray) {
 
             var workFB = new Firebase("https://instamoney.firebaseio.com/work_queue");
             var notifyFB = new Firebase("https://instamoney.firebaseio.com/notify_queue");
             const ISA_NL = "NL99INGB2348573645";
-            const ISA_AUS = "AU77INGB4758476399";
+            const ISA_NL_AUD = "NL77INGB4758476399";
+            const ISA_AUS = "AU484744644";
+            const DELAY = 1000;
 
 
             var notify = $firebaseArray(notifyFB);
@@ -34,15 +36,28 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
                 console.log(transaction.$id);
 
                 if (isValidTransaction(transaction)) {
-                    var accountFrom = getAccountRef(transaction.to);
-                    var accountNL = getAccountRef(ISA_NL);
 
+                    transferMoney(getAccountRef(transaction.from), transaction.amount, getAccountRef(ISA_NL), transaction.amount, false);
+                    toCurrency(amount, AUD).then(function(amountAUD) {
 
+                        window.setTimeout(function (){
+                            transferMoney(getAccountRef(getAccountRef(ISA_NL), transaction.amount, getAccountRef(ISA_NL_AUD), amountAUD), true);
+                        }, DELAY);
+
+                        window.setTimeout(function (){
+                            transferMoney(getAccountRef(getAccountRef(ISA_NL_AUD), amountAUD, getAccountRef(ISA_AUS), amountAUD), true);
+                        }, DELAY);
+
+                        window.setTimeout(function (){
+                            transferMoney(getAccountRef(getAccountRef(ISA_AUS), amountAUD, getAccountRef(transaction.to), amountAUD), true);
+                        }, DELAY);
+                        
+                        notify.push({'transaction': transaction, 'message': 'transaction succeeded'});
+                    });
                 } else {
                     notify.push({'transaction': transaction, 'message': 'transaction invalid'});
+
                 }
-
-
             }
 
             function isValidTransaction(transaction) {
@@ -50,15 +65,31 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
                 if (transaction.from == null) return false;
                 if (transaction.to == null) return false;
                 if (transaction.amount == null) return false;
-
-
             }
 
             function getAccountRef(accountNumber) {
-                return new Firebase("https://instamoney.firebaseio.com/accounts/" + accountNumber);
+                return $firebaseObject(new Firebase("https://instamoney.firebaseio.com/accounts/" + accountNumber));
             }
 
-            var accounts = $firebaseArray(accountsFB);
+            function transferMoney(accountFrom, accountTo, amount, noBalanceCheck) {
+                var balance = accountFrom.child("/balance");
+
+                if (noBalanceCheck || balance > amount) {
+                    balance.set(balance - amount);
+
+                } else {
+                    notify.push({'transaction': transaction, 'message': 'insufficient balance'});
+                }
+            }
+
+            function toCurrency(amount, currency) {
+
+                return $http.get('http://api.fixer.io/latest').then(function(data) {
+                    return amount * data.rates.AUD;
+                });
+
+            }
+
 
 
         }
