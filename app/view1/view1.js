@@ -25,7 +25,11 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
             window.setInterval(function () {
                 if (work.length > 0) {
                     var key = work.$keyAt(0);
-                    pickOrder(work.$getRecord(key));
+                    var order = work.$getRecord(key);
+                    pickOrder(order);
+                    work.$remove(order).then(function() {
+                        $log.info('removed')
+                    }, function(error) { $log.info(error); });
                 }
             }, 20000);
 
@@ -50,10 +54,8 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
                                                             transferMoney(getAccountRef(ISA_AUS), amountAUD, getAccountRef(transaction.to), amountAUD, true, transaction)
                                                                 .then(function () {
                                                                     $log.info("transaction " + amountAUD + " succeeded");
-                                                                    notify.push({
-                                                                        'transaction': transaction,
-                                                                        'message': 'transaction succeeded'
-                                                                    });
+                                                                    handleSuccess(transaction);
+
                                                                 })
 
                                                         }, DELAY);
@@ -85,8 +87,8 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
                 return new Firebase("https://instamoney.firebaseio.com/accounts/" + accountNumber);
             }
 
-            function transferMoney(accountFrom, amountFrom, accountTo, amountTo, noBalanceCheck, transactionReference) {
-                var accountFrom = $firebaseObject(accountFrom);
+            function transferMoney(accountFromRef, amountFrom, accountToRef, amountTo, noBalanceCheck, transactionReference) {
+                var accountFrom = $firebaseObject(accountFromRef);
 
                 return accountFrom.$loaded(function () {
                     if (noBalanceCheck || accountFrom.balance > amountFrom) {
@@ -95,8 +97,8 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
                         notify.push({'transaction': transactionReference, 'message': 'insufficient balance'});
                     }
 
-                    return accountFrom.$save(function () {
-                        var accountTo = $firebaseObject(accountTo);
+                    return accountFrom.$save().then(function () {
+                        var accountTo = $firebaseObject(accountToRef);
 
                         return accountTo.$loaded(function () {
                             accountTo.balance = accountTo.balance + amountTo;
@@ -105,21 +107,24 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
 
                     });
                 })
-
-
             }
 
 
             function toCurrency(amount, currency) {
 
                 return $http.get('http://api.fixer.io/latest').then(function (data) {
-                    console.log(data);
+
                     return amount * data.data.rates.AUD;
                 });
-
             }
 
-
+            function handleSuccess(transaction) {
+                $log.info("pushing success");
+                notify.push({
+                    'transaction': transaction,
+                    'message': 'transaction succeeded'
+                });
+            }
         }
     )
 ;
