@@ -16,7 +16,7 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
             const ISA_NL = "NL99INGB2348573645";
             const ISA_NL_AUD = "NL77INGB4758476399";
             const ISA_AUS = "AU484744644";
-            const DELAY = 5000;
+            const DELAY = 500;
 
 
             var notify = $firebaseArray(notifyFB);
@@ -27,11 +27,13 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
                     var key = work.$keyAt(0);
                     var order = work.$getRecord(key);
                     pickOrder(order);
-                    work.$remove(order).then(function() {
+                    work.$remove(order).then(function () {
                         $log.info('removed')
-                    }, function(error) { $log.info(error); });
+                    }, function (error) {
+                        $log.info(error);
+                    });
                 }
-            }, 20000);
+            }, 2000);
 
 
             ////////////////////////////////////
@@ -41,19 +43,21 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
 
                 if (isValidTransaction(transaction)) {
 
-                    transferMoney(getAccountRef(transaction.from), transaction.amount, getAccountRef(ISA_NL), transaction.amount, false, transaction)
-                        .then(function () {
-                            toCurrency(transaction.amount, 'AUD').then(function (amountAUD) {
+                    toCurrency(transaction.amount, 'AUD').then(function (amountEUR) {
+                        transaction.amountEUR = Math.round(amountEUR * 100) / 100;
+                        transferMoney(getAccountRef(transaction.from), transaction.amountEUR, getAccountRef(ISA_NL), transaction.amountEUR, false, transaction)
+                            .then(function () {
+
                                 window.setTimeout(function () {
-                                    transferMoney(getAccountRef(ISA_NL), transaction.amount, getAccountRef(ISA_NL_AUD), amountAUD, true, transaction)
+                                    transferMoney(getAccountRef(ISA_NL), transaction.amountEUR, getAccountRef(ISA_NL_AUD), transaction.amount, true, transaction)
                                         .then(function () {
                                             window.setTimeout(function () {
-                                                transferMoney(getAccountRef(ISA_NL_AUD), amountAUD, getAccountRef(ISA_AUS), amountAUD, true, transaction)
+                                                transferMoney(getAccountRef(ISA_NL_AUD), transaction.amount, getAccountRef(ISA_AUS), transaction.amount, true, transaction)
                                                     .then(function () {
                                                         window.setTimeout(function () {
-                                                            transferMoney(getAccountRef(ISA_AUS), amountAUD, getAccountRef(transaction.to), amountAUD, true, transaction)
+                                                            transferMoney(getAccountRef(ISA_AUS), transaction.amount, getAccountRef(transaction.to), transaction.amount, true, transaction)
                                                                 .then(function () {
-                                                                    $log.info("transaction " + amountAUD + " succeeded");
+                                                                    $log.info("transaction " + transaction.amount + " succeeded");
                                                                     handleSuccess(transaction);
 
                                                                 })
@@ -64,7 +68,7 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
                                         })
                                 }, DELAY);
                             });
-                        })
+                    })
                 }
                 else {
                     $log.info("transaction rejected");
@@ -114,7 +118,7 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
 
                 return $http.get('http://api.fixer.io/latest').then(function (data) {
 
-                    return amount * data.data.rates.AUD;
+                    return amount / data.data.rates.AUD;
                 });
             }
 
