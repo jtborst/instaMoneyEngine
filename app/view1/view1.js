@@ -16,7 +16,7 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
             const ISA_NL = "NL99INGB2348573645";
             const ISA_NL_AUD = "NL77INGB4758476399";
             const ISA_AUS = "AU484744644";
-            const DELAY = 1000;
+            const DELAY = 5000;
 
 
             var notify = $firebaseArray(notifyFB);
@@ -27,7 +27,7 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
                     var key = work.$keyAt(0);
                     pickOrder(work.$getRecord(key));
                 }
-            }, 2000);
+            }, 20000);
 
 
             ////////////////////////////////////
@@ -37,29 +37,34 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
 
                 if (isValidTransaction(transaction)) {
 
-                    transferMoney(getAccountRef(transaction.from), transaction.amount, getAccountRef(ISA_NL), transaction.amount, false, transaction);
-                    toCurrency(transaction.amount, 'AUD').then(function (amountAUD) {
-
-                        window.setTimeout(function () {
-                            transferMoney(getAccountRef(ISA_NL), transaction.amount, getAccountRef(ISA_NL_AUD), amountAUD, true, transaction);
-
-
-                            window.setTimeout(function () {
-                                transferMoney(getAccountRef(ISA_NL_AUD), amountAUD, getAccountRef(ISA_AUS), amountAUD, true, transaction);
-
-
+                    transferMoney(getAccountRef(transaction.from), transaction.amount, getAccountRef(ISA_NL), transaction.amount, false, transaction)
+                        .then(function () {
+                            toCurrency(transaction.amount, 'AUD').then(function (amountAUD) {
                                 window.setTimeout(function () {
-                                    transferMoney(getAccountRef(ISA_AUS), amountAUD, getAccountRef(transaction.to), amountAUD, true, transaction);
+                                    transferMoney(getAccountRef(ISA_NL), transaction.amount, getAccountRef(ISA_NL_AUD), amountAUD, true, transaction)
+                                        .then(function () {
+                                            window.setTimeout(function () {
+                                                transferMoney(getAccountRef(ISA_NL_AUD), amountAUD, getAccountRef(ISA_AUS), amountAUD, true, transaction)
+                                                    .then(function () {
+                                                        window.setTimeout(function () {
+                                                            transferMoney(getAccountRef(ISA_AUS), amountAUD, getAccountRef(transaction.to), amountAUD, true, transaction)
+                                                                .then(function () {
+                                                                    $log.info("transaction " + amountAUD + " succeeded");
+                                                                    notify.push({
+                                                                        'transaction': transaction,
+                                                                        'message': 'transaction succeeded'
+                                                                    });
+                                                                })
 
-                                    $log.info("transaction " + amountAUD + " succeeded");
-                                    notify.push({'transaction': transaction, 'message': 'transaction succeeded'});
-
-
+                                                        }, DELAY);
+                                                    })
+                                            }, DELAY);
+                                        })
                                 }, DELAY);
-                            }, DELAY);
-                        }, DELAY);
-                    });
-                } else {
+                            });
+                        })
+                }
+                else {
                     $log.info("transaction rejected");
                     notify.push({'transaction': transaction, 'message': 'transaction invalid'});
 
@@ -83,21 +88,19 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
             function transferMoney(accountFrom, amountFrom, accountTo, amountTo, noBalanceCheck, transactionReference) {
                 var accountFrom = $firebaseObject(accountFrom);
 
-                accountFrom.$loaded(function () {
+                return accountFrom.$loaded(function () {
                     if (noBalanceCheck || accountFrom.balance > amountFrom) {
                         accountFrom.balance = accountFrom.balance - amountFrom;
                     } else {
                         notify.push({'transaction': transactionReference, 'message': 'insufficient balance'});
                     }
 
-                    accountFrom.$save(function () {
+                    return accountFrom.$save(function () {
                         var accountTo = $firebaseObject(accountTo);
 
-                        accountTo.$loaded(function () {
+                        return accountTo.$loaded(function () {
                             accountTo.balance = accountTo.balance + amountTo;
-                            accountTo.$save(function () {
-                                $log.info("saved");
-                            });
+                            return accountTo.$save();
                         });
 
                     });
