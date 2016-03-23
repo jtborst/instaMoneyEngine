@@ -68,7 +68,7 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
                 }
                 else {
                     $log.info("transaction rejected");
-                    notify.push({'transaction': transaction, 'message': 'transaction invalid'});
+                    notify.$add({'transaction': transaction, 'message': 'transaction invalid'});
 
                 }
             }
@@ -94,7 +94,7 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
                     if (noBalanceCheck || accountFrom.balance > amountFrom) {
                         accountFrom.balance = accountFrom.balance - amountFrom;
                     } else {
-                        notify.push({'transaction': transactionReference, 'message': 'insufficient balance'});
+                        notify.$add({'transaction': transactionReference, 'message': 'insufficient balance'});
                     }
 
                     return accountFrom.$save().then(function () {
@@ -120,7 +120,16 @@ angular.module('myApp.view1', ['ngRoute', "firebase"])
 
             function handleSuccess(transaction) {
                 $log.info("pushing success");
-                notify.push({
+
+                var toRef = getAccountRef(transaction.to).child('transactions');
+                var transactionsTo = $firebaseArray(toRef);
+                transactionsTo.$add(transaction);
+
+                var fromRef = getAccountRef(transaction.from).child('transactions');
+                var transactionsFrom = $firebaseArray(fromRef);
+                transactionsFrom.$add(transaction);
+
+                notify.$add({
                     'transaction': transaction,
                     'message': 'transaction succeeded'
                 });
